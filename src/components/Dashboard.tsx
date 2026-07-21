@@ -6,8 +6,8 @@ import { useToast } from './shared/Toast';
 import StatsBar from './shared/StatsBar';
 import ConfirmDialog from './shared/ConfirmDialog';
 import PipelineBoard from './pipeline/PipelineBoard';
-import LeadPool from './leads/LeadPool';
-import AssignmentTracker from './assignments/AssignmentTracker';
+import LeadBoard from './leads/LeadBoard';
+import AssignmentBoard from './assignments/AssignmentBoard';
 import EmailTemplateEditor from './settings/EmailTemplateEditor';
 
 type TabId = 'pipeline' | 'leads' | 'assignments' | 'settings';
@@ -329,22 +329,26 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         {activeTab === 'pipeline' && (
           <PipelineBoard
             editors={editors}
+            leads={leads}
+            assignments={assignments}
             onSave={saveEditor}
             onDelete={deleteEditor}
             onStageChange={changeEditorStage}
+            onSaveAssignment={saveAssignment}
             onRefresh={fetchAll}
           />
         )}
         {activeTab === 'leads' && (
-          <LeadPool
+          <LeadBoard
             leads={leads}
             onSave={saveLead}
             onDelete={deleteLead}
+            onStatusChange={async (id, status) => saveLead({ status } as any, id)}
             onRefresh={fetchAll}
           />
         )}
         {activeTab === 'assignments' && (
-          <AssignmentTracker
+          <AssignmentBoard
             assignments={assignments}
             editors={editors}
             leads={leads}

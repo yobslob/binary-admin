@@ -27,6 +27,8 @@ export default function AssignmentModal({
   const [ticketSize, setTicketSize] = useState(0);
   const [notes, setNotes] = useState('');
 
+  const [deadline, setDeadline] = useState('');
+
   useEffect(() => {
     if (assignment) {
       setEditorId(typeof assignment.editorId === 'string' ? assignment.editorId : assignment.editor?._id || '');
@@ -34,12 +36,14 @@ export default function AssignmentModal({
       setStatus(assignment.status);
       setTicketSize(assignment.lead?.ticketSize || 0);
       setNotes(assignment.notes || '');
+      setDeadline(assignment.deadline ? new Date(assignment.deadline).toISOString().split('T')[0] : '');
     } else {
       setEditorId('');
       setLeadId('');
       setStatus('in_progress');
       setTicketSize(0);
       setNotes('');
+      setDeadline('');
     }
   }, [assignment]);
 
@@ -67,15 +71,20 @@ export default function AssignmentModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const data: Record<string, unknown> = { notes };
+    if (deadline) data.deadline = new Date(deadline).toISOString();
+
     if (isEditing) {
-      const data: Record<string, unknown> = { status, notes };
+      data.status = status;
       if (ticketSize > 0) {
         data.ticketSize = ticketSize;
       }
       onSave(data, assignment!._id);
     } else {
       if (!editorId || !leadId) return;
-      onSave({ editorId, leadId, notes });
+      data.editorId = editorId;
+      data.leadId = leadId;
+      onSave(data);
     }
   };
 
@@ -141,6 +150,16 @@ export default function AssignmentModal({
                   </div>
                 </div>
 
+                <div className="input-group">
+                  <label className="input-label">Deadline</label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                  />
+                </div>
+
                 {(status === 'closed' || ticketSize > 0) && (
                   <div
                     style={{
@@ -200,6 +219,16 @@ export default function AssignmentModal({
                   {availableLeads.length === 0 && (
                     <span className="text-secondary text-xs">No unassigned leads available.</span>
                   )}
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Deadline</label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                  />
                 </div>
               </>
             )}

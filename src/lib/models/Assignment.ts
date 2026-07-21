@@ -15,6 +15,7 @@ const AssignmentSchema = new Schema(
     closedAt: { type: Date, default: null },
     commissionEarned: { type: Number, default: 0 },
     notes: { type: String, default: '' },
+    deadline: { type: Date, default: null },
     assignedAt: { type: Date, default: Date.now },
   },
   {

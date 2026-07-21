@@ -78,6 +78,7 @@ export interface IAssignment {
   closedAt?: string;
   commissionEarned?: number;
   notes?: string;
+  deadline?: string;
   assignedAt: string;
   updatedAt: string;
 }

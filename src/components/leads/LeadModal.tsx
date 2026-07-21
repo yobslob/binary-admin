@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ILead, FileReference } from '@/lib/types';
 import { LEAD_STATUSES } from '@/lib/constants';
+import { uploadToCloudinary } from '@/lib/cloudinary';
 
 interface LeadModalProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ export default function LeadModal({ isOpen, lead, onSave, onClose }: LeadModalPr
     notes: '',
   });
   const [files, setFiles] = useState<FileReference[]>([]);
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (lead) {
@@ -41,7 +44,7 @@ export default function LeadModal({ isOpen, lead, onSave, onClose }: LeadModalPr
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
+    if (!form.name.trim() || uploadingIndex !== null) return;
     onSave({ ...form, files });
   };
 
@@ -49,7 +52,7 @@ export default function LeadModal({ isOpen, lead, onSave, onClose }: LeadModalPr
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const addFile = () => {
+  const addFileRow = () => {
     setFiles((prev) => [...prev, { name: '', url: '', type: 'other' }]);
   };
 
@@ -59,6 +62,26 @@ export default function LeadModal({ isOpen, lead, onSave, onClose }: LeadModalPr
 
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFileUpload = async (index: number, file: File) => {
+    if (!file) return;
+    setUploadingIndex(index);
+    try {
+      const url = await uploadToCloudinary(file);
+      const isVideo = file.type.startsWith('video/');
+      const isImage = file.type.startsWith('image/');
+      let type: FileReference['type'] = 'other';
+      if (isVideo) type = 'video';
+      else if (isImage) type = 'image';
+      else if (file.type.includes('pdf') || file.type.includes('document')) type = 'document';
+
+      setFiles((prev) => prev.map((f, i) => i === index ? { ...f, url, type, name: f.name || file.name } : f));
+    } catch (error) {
+      alert('Failed to upload file. Please try again.');
+    } finally {
+      setUploadingIndex(null);
+    }
   };
 
   if (!isOpen) return null;
@@ -144,24 +167,42 @@ export default function LeadModal({ isOpen, lead, onSave, onClose }: LeadModalPr
               <label className="input-label">Files / References</label>
               <div className="file-list">
                 {files.map((file, i) => (
-                  <div key={i} className="file-row">
+                  <div key={i} className="file-row" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
                     <input
                       className="input"
                       value={file.name}
                       onChange={(e) => updateFile(i, 'name', e.target.value)}
                       placeholder="File name"
+                      style={{ flex: 1 }}
                     />
-                    <input
-                      className="input"
-                      value={file.url}
-                      onChange={(e) => updateFile(i, 'url', e.target.value)}
-                      placeholder="URL (Drive, Dropbox...)"
-                    />
+                    
+                    <div style={{ position: 'relative', flex: 1.5, display: 'flex', alignItems: 'center' }}>
+                      <input
+                        className="input"
+                        value={file.url}
+                        onChange={(e) => updateFile(i, 'url', e.target.value)}
+                        placeholder="URL or Upload ➔"
+                        style={{ width: '100%', paddingRight: '40px' }}
+                      />
+                      <label 
+                        className="btn btn-sm btn-ghost" 
+                        style={{ position: 'absolute', right: 4, padding: '2px 8px', cursor: 'pointer', height: '28px' }}
+                      >
+                        {uploadingIndex === i ? '⏳' : '📁'}
+                        <input 
+                          type="file" 
+                          style={{ display: 'none' }}
+                          onChange={(e) => e.target.files?.[0] && handleFileUpload(i, e.target.files[0])}
+                          disabled={uploadingIndex !== null}
+                        />
+                      </label>
+                    </div>
+
                     <select
                       className="select"
                       value={file.type || 'other'}
                       onChange={(e) => updateFile(i, 'type', e.target.value)}
-                      style={{ width: 'auto', minWidth: 90 }}
+                      style={{ width: '110px' }}
                     >
                       <option value="video">🎬 Video</option>
                       <option value="document">📄 Doc</option>
@@ -171,7 +212,7 @@ export default function LeadModal({ isOpen, lead, onSave, onClose }: LeadModalPr
                     <button type="button" className="btn btn-xs btn-danger" onClick={() => removeFile(i)}>✗</button>
                   </div>
                 ))}
-                <button type="button" className="btn btn-sm btn-ghost" onClick={addFile}>+ Add File</button>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={addFileRow}>+ Add File</button>
               </div>
             </div>
 
@@ -190,8 +231,8 @@ export default function LeadModal({ isOpen, lead, onSave, onClose }: LeadModalPr
 
           <div className="modal-footer">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={!form.name.trim()} id="lead-save">
-              {isEditing ? 'Save Changes' : 'Add Lead'}
+            <button type="submit" className="btn btn-primary" disabled={!form.name.trim() || uploadingIndex !== null} id="lead-save">
+              {uploadingIndex !== null ? 'Uploading...' : isEditing ? 'Save Changes' : 'Add Lead'}
             </button>
           </div>
         </form>
