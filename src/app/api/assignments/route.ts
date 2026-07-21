@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     void Lead;
 
     const assignments = await Assignment.find(filter)
-      .populate('editorId', 'name email stage')
+      .populate('editorId', 'name email stage commissionRate')
       .populate('leadId', 'name company status ticketSize')
       .sort({ updatedAt: -1 })
       .lean();
@@ -35,8 +35,10 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json(mapped);
-  } catch {
-    return NextResponse.json({ error: 'Failed to fetch assignments' }, { status: 500 });
+  } catch (err) {
+    console.error('[GET /api/assignments]', err);
+    const message = err instanceof Error ? err.message : 'Failed to fetch assignments';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -61,7 +63,8 @@ export async function POST(req: NextRequest) {
     await Lead.findByIdAndUpdate(body.leadId, { status: 'assigned' });
 
     return NextResponse.json(assignment, { status: 201 });
-  } catch (err: unknown) {
+  } catch (err) {
+    console.error('[POST /api/assignments]', err);
     const message = err instanceof Error ? err.message : 'Failed to create assignment';
     return NextResponse.json({ error: message }, { status: 500 });
   }

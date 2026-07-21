@@ -59,7 +59,8 @@ export async function PUT(
     }
 
     return NextResponse.json(assignment);
-  } catch (err: unknown) {
+  } catch (err) {
+    console.error('[PUT /api/assignments/[id]]', err);
     const message = err instanceof Error ? err.message : 'Failed to update assignment';
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -79,7 +80,8 @@ export async function DELETE(
     await Lead.findByIdAndUpdate(assignment.leadId, { status: 'unassigned' });
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error('[DELETE /api/assignments/[id]]', err);
     return NextResponse.json({ error: 'Failed to delete assignment' }, { status: 500 });
   }
 }

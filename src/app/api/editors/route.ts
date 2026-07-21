@@ -13,8 +13,10 @@ export async function GET(req: NextRequest) {
 
     const editors = await Editor.find(filter).sort({ updatedAt: -1 }).lean();
     return NextResponse.json(editors);
-  } catch {
-    return NextResponse.json({ error: 'Failed to fetch editors' }, { status: 500 });
+  } catch (err) {
+    console.error('[GET /api/editors]', err);
+    const message = err instanceof Error ? err.message : 'Failed to fetch editors';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -22,6 +24,11 @@ export async function POST(req: NextRequest) {
   try {
     await dbConnect();
     const body = await req.json();
+
+    if (!body.name || !body.email) {
+      return NextResponse.json({ error: 'Name and email are required' }, { status: 400 });
+    }
+
     const editor = await Editor.create({
       name: body.name,
       email: body.email,
@@ -33,7 +40,8 @@ export async function POST(req: NextRequest) {
       notes: body.notes || '',
     });
     return NextResponse.json(editor, { status: 201 });
-  } catch (err: unknown) {
+  } catch (err) {
+    console.error('[POST /api/editors]', err);
     const message = err instanceof Error ? err.message : 'Failed to create editor';
     return NextResponse.json({ error: message }, { status: 500 });
   }

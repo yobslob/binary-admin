@@ -12,7 +12,8 @@ export async function GET(
     const editor = await Editor.findById(id).lean();
     if (!editor) return NextResponse.json({ error: 'Editor not found' }, { status: 404 });
     return NextResponse.json(editor);
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/editors/[id]]', err);
     return NextResponse.json({ error: 'Failed to fetch editor' }, { status: 500 });
   }
 }
@@ -28,7 +29,8 @@ export async function PUT(
     const editor = await Editor.findByIdAndUpdate(id, body, { new: true, runValidators: true }).lean();
     if (!editor) return NextResponse.json({ error: 'Editor not found' }, { status: 404 });
     return NextResponse.json(editor);
-  } catch (err: unknown) {
+  } catch (err) {
+    console.error('[PUT /api/editors/[id]]', err);
     const message = err instanceof Error ? err.message : 'Failed to update editor';
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -44,7 +46,8 @@ export async function DELETE(
     const editor = await Editor.findByIdAndDelete(id);
     if (!editor) return NextResponse.json({ error: 'Editor not found' }, { status: 404 });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error('[DELETE /api/editors/[id]]', err);
     return NextResponse.json({ error: 'Failed to delete editor' }, { status: 500 });
   }
 }

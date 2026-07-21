@@ -13,8 +13,10 @@ export async function GET(req: NextRequest) {
 
     const leads = await Lead.find(filter).sort({ updatedAt: -1 }).lean();
     return NextResponse.json(leads);
-  } catch {
-    return NextResponse.json({ error: 'Failed to fetch leads' }, { status: 500 });
+  } catch (err) {
+    console.error('[GET /api/leads]', err);
+    const message = err instanceof Error ? err.message : 'Failed to fetch leads';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -22,6 +24,11 @@ export async function POST(req: NextRequest) {
   try {
     await dbConnect();
     const body = await req.json();
+
+    if (!body.name) {
+      return NextResponse.json({ error: 'Lead name is required' }, { status: 400 });
+    }
+
     const lead = await Lead.create({
       name: body.name,
       email: body.email || '',
@@ -32,7 +39,8 @@ export async function POST(req: NextRequest) {
       notes: body.notes || '',
     });
     return NextResponse.json(lead, { status: 201 });
-  } catch (err: unknown) {
+  } catch (err) {
+    console.error('[POST /api/leads]', err);
     const message = err instanceof Error ? err.message : 'Failed to create lead';
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -23,6 +23,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [assignments, setAssignments] = useState<IAssignment[]>([]);
   const [templates, setTemplates] = useState<IEmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -33,44 +34,30 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const { showToast } = useToast();
 
-  // ─── Data Fetching ─────────────────────────────────────────
-
-  const fetchEditors = useCallback(async () => {
-    try {
-      const res = await fetch('/editors/api/editors');
-      if (res.ok) setEditors(await res.json());
-    } catch { showToast('Failed to load editors', 'error'); }
-  }, [showToast]);
-
-  const fetchLeads = useCallback(async () => {
-    try {
-      const res = await fetch('/editors/api/leads');
-      if (res.ok) setLeads(await res.json());
-    } catch { showToast('Failed to load leads', 'error'); }
-  }, [showToast]);
-
-  const fetchAssignments = useCallback(async () => {
-    try {
-      const res = await fetch('/editors/api/assignments');
-      if (res.ok) setAssignments(await res.json());
-    } catch { showToast('Failed to load assignments', 'error'); }
-  }, [showToast]);
-
-  const fetchSettings = useCallback(async () => {
-    try {
-      const res = await fetch('/editors/api/settings');
-      if (res.ok) {
-        const data = await res.json();
-        setTemplates(data.value || []);
-      }
-    } catch { showToast('Failed to load settings', 'error'); }
-  }, [showToast]);
+  // ─── Data Fetching (single request) ───────────────────────
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    await Promise.all([fetchEditors(), fetchLeads(), fetchAssignments(), fetchSettings()]);
-    setLoading(false);
-  }, [fetchEditors, fetchLeads, fetchAssignments, fetchSettings]);
+    setLoadError(null);
+    try {
+      const res = await fetch('/editors/api/dashboard');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(data.error || `Server error (${res.status})`);
+      }
+      const data = await res.json();
+      setEditors(data.editors || []);
+      setLeads(data.leads || []);
+      setAssignments(data.assignments || []);
+      setTemplates(data.settings?.value || []);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load dashboard data';
+      setLoadError(message);
+      showToast(message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -87,12 +74,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       });
       if (res.ok) {
         showToast(id ? 'Editor updated' : 'Editor added', 'success');
-        fetchEditors();
+        fetchAll();
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({ error: 'Request failed' }));
         showToast(err.error || 'Failed to save editor', 'error');
       }
-    } catch { showToast('Failed to save editor', 'error'); }
+    } catch { showToast('Network error — check your connection', 'error'); }
   };
 
   const deleteEditor = (id: string) => {
@@ -107,9 +94,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           const res = await fetch(`/editors/api/editors/${id}`, { method: 'DELETE' });
           if (res.ok) {
             showToast('Editor deleted', 'success');
-            fetchEditors();
+            fetchAll();
+          } else {
+            showToast('Failed to delete editor', 'error');
           }
-        } catch { showToast('Failed to delete editor', 'error'); }
+        } catch { showToast('Network error', 'error'); }
         setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
       },
     });
@@ -124,9 +113,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       });
       if (res.ok) {
         showToast('Stage updated', 'success');
-        fetchEditors();
+        fetchAll();
+      } else {
+        showToast('Failed to update stage', 'error');
       }
-    } catch { showToast('Failed to update stage', 'error'); }
+    } catch { showToast('Network error', 'error'); }
   };
 
   // ─── Lead Operations ──────────────────────────────────────
@@ -142,12 +133,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       });
       if (res.ok) {
         showToast(id ? 'Lead updated' : 'Lead added', 'success');
-        fetchLeads();
+        fetchAll();
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({ error: 'Request failed' }));
         showToast(err.error || 'Failed to save lead', 'error');
       }
-    } catch { showToast('Failed to save lead', 'error'); }
+    } catch { showToast('Network error', 'error'); }
   };
 
   const deleteLead = (id: string) => {
@@ -162,9 +153,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           const res = await fetch(`/editors/api/leads/${id}`, { method: 'DELETE' });
           if (res.ok) {
             showToast('Lead deleted', 'success');
-            fetchLeads();
+            fetchAll();
+          } else {
+            showToast('Failed to delete lead', 'error');
           }
-        } catch { showToast('Failed to delete lead', 'error'); }
+        } catch { showToast('Network error', 'error'); }
         setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
       },
     });
@@ -197,14 +190,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       });
       if (res.ok) {
         showToast(id ? 'Assignment updated' : 'Assignment created', 'success');
-        fetchAssignments();
-        fetchLeads();
-        fetchEditors();
+        fetchAll();
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({ error: 'Request failed' }));
         showToast(err.error || 'Failed to save assignment', 'error');
       }
-    } catch { showToast('Failed to save assignment', 'error'); }
+    } catch { showToast('Network error', 'error'); }
   };
 
   const deleteAssignment = (id: string) => {
@@ -218,10 +209,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           const res = await fetch(`/editors/api/assignments/${id}`, { method: 'DELETE' });
           if (res.ok) {
             showToast('Assignment deleted', 'success');
-            fetchAssignments();
-            fetchLeads();
+            fetchAll();
+          } else {
+            showToast('Failed to delete assignment', 'error');
           }
-        } catch { showToast('Failed to delete assignment', 'error'); }
+        } catch { showToast('Network error', 'error'); }
         setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
       },
     });
@@ -239,8 +231,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       if (res.ok) {
         showToast('Templates saved', 'success');
         setTemplates(updated);
+      } else {
+        showToast('Failed to save templates', 'error');
       }
-    } catch { showToast('Failed to save templates', 'error'); }
+    } catch { showToast('Network error', 'error'); }
   };
 
   // ─── Logout ───────────────────────────────────────────────
@@ -273,6 +267,28 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="loading-screen">
+        <div style={{ textAlign: 'center', maxWidth: 420 }}>
+          <div style={{ fontSize: '2rem', marginBottom: 16, opacity: 0.4 }}>⚠</div>
+          <h3 style={{ marginBottom: 8 }}>Connection Failed</h3>
+          <p className="text-secondary" style={{ fontSize: '0.85rem', marginBottom: 20, lineHeight: 1.6 }}>
+            {loadError}
+          </p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button className="btn btn-primary" onClick={fetchAll}>
+              Retry
+            </button>
+            <button className="btn" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard">
       <div className="dashboard-header">
@@ -285,6 +301,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           <span className="header-title">Binary Admin</span>
         </div>
         <div className="header-right">
+          <button className="btn btn-ghost btn-sm" onClick={fetchAll} id="refresh-btn">
+            ↻ Refresh
+          </button>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout} id="logout-btn">
             Logout
           </button>
@@ -313,7 +332,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             onSave={saveEditor}
             onDelete={deleteEditor}
             onStageChange={changeEditorStage}
-            onRefresh={fetchEditors}
+            onRefresh={fetchAll}
           />
         )}
         {activeTab === 'leads' && (
@@ -321,7 +340,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             leads={leads}
             onSave={saveLead}
             onDelete={deleteLead}
-            onRefresh={fetchLeads}
+            onRefresh={fetchAll}
           />
         )}
         {activeTab === 'assignments' && (
@@ -331,7 +350,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             leads={leads}
             onSave={saveAssignment}
             onDelete={deleteAssignment}
-            onRefresh={fetchAssignments}
+            onRefresh={fetchAll}
           />
         )}
         {activeTab === 'settings' && (
